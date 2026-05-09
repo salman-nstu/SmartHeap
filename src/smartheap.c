@@ -402,3 +402,105 @@ size_t sh_leak_check(void)
     unlock();
     return count;
 }
+
+/* ── JSON State Export ───────────────────────────────────────── */
+
+int sh_state_json(char *buf, size_t bufsize)
+{
+    int pos = 0;
+    lock();
+
+    /* Strategy name */
+    const char *strat = strategy_name(g_state.strategy);
+
+    /* Compute stats */
+    sh_stats_t st = stats_compute(&g_state);
+
+    /* Start JSON */
+    pos += snprintf(buf + pos, bufsize - pos,
+        "{\"strategy\":\"%s\","
+        "\"stats\":{"
+        "\"current_usage\":%zu,"
+        "\"peak_usage\":%zu,"
+        "\"total_allocated\":%zu,"
+        "\"total_freed\":%zu,"
+        "\"arena_memory\":%zu,"
+        "\"alloc_count\":%zu,"
+        "\"free_count\":%zu,"
+        "\"reuse_count\":%zu,"
+        "\"split_count\":%zu,"
+        "\"coalesce_count\":%zu,"
+        "\"arena_count\":%zu,"
+        "\"total_blocks\":%zu,"
+        "\"used_blocks\":%zu,"
+        "\"free_blocks\":%zu,"
+        "\"external_frag\":%.1f,"
+        "\"utilization\":%.1f,"
+        "\"largest_free\":%zu,"
+        "\"smallest_free\":%zu"
+        "},",
+        strat,
+        g_state.current_usage,
+        g_state.peak_usage,
+        g_state.total_allocated,
+        g_state.total_freed,
+        g_state.total_arena_memory,
+        g_state.alloc_count,
+        g_state.free_count,
+        g_state.reuse_count,
+        g_state.split_count,
+        g_state.coalesce_count,
+        g_state.arena_count,
+        st.total_blocks,
+        st.used_blocks,
+        st.free_blocks,
+        st.external_fragmentation * 100.0,
+        st.utilization * 100.0,
+        st.largest_free_block,
+        st.smallest_free_block
+    );
+
+    /* Arenas */
+    pos += snprintf(buf + pos, bufsize - pos, "\"arenas\":[");
+    arena_t *arena = g_state.arenas;
+    int arena_id = 0;
+    while (arena) {
+        if (arena_id > 0)
+            pos += snprintf(buf + pos, bufsize - pos, ",");
+
+        pos += snprintf(buf + pos, bufsize - pos,
+            "{\"id\":%d,\"total_size\":%zu,\"blocks\":[",
+            arena_id, arena->total_size);
+
+        header_t *block = arena->first_block;
+        int first_block = 1;
+        while (block) {
+            if (!first_block)
+                pos += snprintf(buf + pos, bufsize - pos, ",");
+
+            pos += snprintf(buf + pos, bufsize - pos,
+                "{\"size\":%zu,\"is_free\":%s,\"alloc_id\":%u}",
+                block->s.size,
+                block->s.is_free ? "true" : "false",
+                block->s.alloc_id);
+
+            first_block = 0;
+            block = block->s.next;
+
+            /* Safety: avoid overflow */
+            if ((size_t)pos >= bufsize - 100) break;
+        }
+
+        pos += snprintf(buf + pos, bufsize - pos, "]}");
+
+        arena = arena->next;
+        arena_id++;
+
+        if ((size_t)pos >= bufsize - 100) break;
+    }
+
+    pos += snprintf(buf + pos, bufsize - pos, "]}");
+
+    unlock();
+    return pos;
+}

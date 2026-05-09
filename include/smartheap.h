@@ -176,4 +176,16 @@ void sh_benchmark_strategies(size_t num_ops);
  */
 size_t sh_leak_check(void);
 
+/* ── JSON State Export (for Dashboard) ───────────────────────── */
+
+/*
+ * Export the entire heap state as a JSON string.
+ * Writes into the provided buffer. Returns the number of bytes written.
+ *
+ * @param buf      Buffer to write JSON into
+ * @param bufsize  Size of the buffer
+ * @return         Number of bytes written (excluding null terminator)
+ */
+int sh_state_json(char *buf, size_t bufsize);
+
 #endif /* SMARTHEAP_H */

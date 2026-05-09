@@ -12,6 +12,7 @@ BUILD_DIR = build
 SRC_DIR   = src
 TEST_DIR  = tests
 DEMO_DIR  = demo
+DASH_DIR  = dashboard
 
 # Source files (Windows only)
 CORE_SRCS = $(SRC_DIR)/smartheap.c \
@@ -28,17 +29,19 @@ TEST_BIN     = $(BUILD_DIR)/test_runner.exe
 DEMO_BIN     = $(BUILD_DIR)/demo_basic.exe
 INTERACT_BIN = $(BUILD_DIR)/demo_interactive.exe
 BENCH_BIN    = $(BUILD_DIR)/demo_benchmark.exe
+DASH_BIN     = $(BUILD_DIR)/dashboard.exe
 
 # ── Default target ───────────────────────────────────────────
-.PHONY: all test demo interactive benchmark clean help
+.PHONY: all test demo interactive benchmark dashboard clean help
 
-all: $(TEST_BIN) $(DEMO_BIN) $(INTERACT_BIN) $(BENCH_BIN)
+all: $(TEST_BIN) $(DEMO_BIN) $(INTERACT_BIN) $(BENCH_BIN) $(DASH_BIN)
 	@echo ""
 	@echo "  [SmartHeap] Build complete!"
 	@echo "  Test:        $(TEST_BIN)"
 	@echo "  Demo:        $(DEMO_BIN)"
 	@echo "  Interactive: $(INTERACT_BIN)"
 	@echo "  Benchmark:   $(BENCH_BIN)"
+	@echo "  Dashboard:   $(DASH_BIN)"
 
 # ── Build directory ──────────────────────────────────────────
 $(BUILD_DIR):
@@ -58,6 +61,10 @@ $(INTERACT_BIN): $(DEMO_DIR)/demo_interactive.c $(CORE_SRCS) | $(BUILD_DIR)
 $(BENCH_BIN): $(DEMO_DIR)/demo_benchmark.c $(CORE_SRCS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
+# ── Dashboard server ─────────────────────────────────────────
+$(DASH_BIN): $(DASH_DIR)/server.c $(CORE_SRCS) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) -lws2_32
+
 # ── Convenience targets ─────────────────────────────────────
 test: $(TEST_BIN)
 	@echo ""
@@ -74,6 +81,13 @@ interactive: $(INTERACT_BIN)
 benchmark: $(BENCH_BIN)
 	./$(BENCH_BIN)
 
+dashboard: $(DASH_BIN)
+	@echo ""
+	@echo "  [SmartHeap] Starting dashboard server..."
+	@echo "  Open http://localhost:8080 in your browser"
+	@echo ""
+	./$(DASH_BIN)
+
 clean:
 	rm -rf $(BUILD_DIR)
 	@echo "  [SmartHeap] Clean complete."
@@ -86,5 +100,6 @@ help:
 	@echo "    make demo       - Build and run basic demo"
 	@echo "    make interactive - Build and run interactive CLI"
 	@echo "    make benchmark  - Build and run benchmarks"
+	@echo "    make dashboard  - Build and run web dashboard"
 	@echo "    make clean      - Remove build artifacts"
 	@echo ""
