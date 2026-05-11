@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartHeap Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0b10;--bg2:#12141d;--bg3:#1a1d2b;
+  --card:rgba(20,23,35,0.85);--border:rgba(99,110,150,0.15);
+  --text:#d1d5e8;--text2:#8892b0;--text3:#5a6380;
+  --accent:#6366f1;--accent2:#818cf8;--green:#22c55e;
+  --red:#ef4444;--orange:#f97316;--cyan:#22d3ee;
+  --yellow:#eab308;
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+.mono{font-family:'JetBrains Mono',monospace}
+
+/* Header */
+.header{display:flex;align-items:center;justify-content:space-between;padding:16px 28px;
+  background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;
+  backdrop-filter:blur(12px)}
+.header h1{font-size:20px;font-weight:700;display:flex;align-items:center;gap:10px}
+.header h1 span{font-size:22px}
+.status{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2)}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* Layout */
+.layout{display:grid;grid-template-columns:300px 1fr;gap:0;min-height:calc(100vh - 57px)}
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);padding:20px;overflow-y:auto}
+.main{padding:24px;overflow-y:auto}
+
+/* Cards */
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;
+  margin-bottom:20px;backdrop-filter:blur(8px)}
+.card-title{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:1px;
+  color:var(--text2);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.card-title svg{width:16px;height:16px;stroke:var(--accent);fill:none;stroke-width:2}
+
+/* Stat grid */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-bottom:24px}
+.stat-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px}
+.stat-label{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:6px}
+.stat-value{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:600}
+.stat-value.green{color:var(--green)} .stat-value.red{color:var(--red)}
+.stat-value.orange{color:var(--orange)} .stat-value.cyan{color:var(--cyan)}
+.stat-value.accent{color:var(--accent2)}
+
+/* Memory map */
+.memory-map{position:relative;margin:8px 0 16px}
+.arena-label{font-size:12px;color:var(--text2);margin-bottom:8px;font-family:'JetBrains Mono',monospace}
+.arena-bar{height:44px;border-radius:8px;overflow:hidden;display:flex;background:var(--bg);
+  border:1px solid var(--border);margin-bottom:12px;position:relative}
+.block{height:100%;transition:all .3s ease;position:relative;min-width:2px}
+.block.used{background:linear-gradient(135deg,#6366f1,#8b5cf6)}
+.block.free{background:linear-gradient(135deg,#1e293b,#1a1d2b)}
+.block:hover{filter:brightness(1.3);z-index:1}
+.block-tooltip{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);
+  background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;
+  white-space:nowrap;font-size:12px;z-index:10;pointer-events:none;
+  box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.block:hover .block-tooltip{display:block}
+.map-legend{display:flex;gap:20px;font-size:12px;color:var(--text2);margin-top:4px}
+.legend-item{display:flex;align-items:center;gap:6px}
+.legend-dot{width:12px;height:12px;border-radius:3px}
+.legend-dot.used{background:linear-gradient(135deg,#6366f1,#8b5cf6)}
+.legend-dot.free{background:var(--bg);border:1px solid var(--border)}
+
+/* Controls */
+.control-group{margin-bottom:18px}
+.control-group label{display:block;font-size:12px;color:var(--text2);margin-bottom:6px;font-weight:500}
+.input-row{display:flex;gap:8px}
+input[type=number],input[type=text],select{width:100%;background:var(--bg);border:1px solid var(--border);
+  border-radius:8px;padding:10px 12px;color:var(--text);font-size:13px;font-family:'Inter',sans-serif;
+  outline:none;transition:border .2s}
+input:focus,select:focus{border-color:var(--accent)}
+select{cursor:pointer;appearance:none;-webkit-appearance:none}
+button{background:var(--accent);color:white;border:none;border-radius:8px;padding:10px 16px;
+  font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif;
+  width:100%}
+button:hover{background:var(--accent2);transform:translateY(-1px)}
+button:active{transform:translateY(0)}
+.btn-secondary{background:var(--bg3);color:var(--text)}
+.btn-secondary:hover{background:var(--border)}
+.btn-danger{background:var(--red)}
+.btn-danger:hover{background:#dc2626}
+.btn-green{background:var(--green)}
+.btn-green:hover{background:#16a34a}
+.btn-sm{padding:7px 12px;font-size:12px}
+
+/* Block list */
+.block-list{max-height:300px;overflow-y:auto}
+.block-item{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;
+  border-radius:6px;margin-bottom:4px;font-size:13px;transition:background .15s}
+.block-item:hover{background:var(--bg3)}
+.block-id{font-family:'JetBrains Mono',monospace;color:var(--accent2);font-weight:600;width:40px}
+.block-size{font-family:'JetBrains Mono',monospace;color:var(--text);flex:1}
+.block-actions button{width:auto;padding:4px 10px;font-size:11px}
+
+/* Operations table */
+.ops-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ops-item{display:flex;justify-content:space-between;padding:8px 12px;
+  background:var(--bg);border-radius:6px;font-size:13px}
+.ops-item .label{color:var(--text2)} .ops-item .value{font-family:'JetBrains Mono',monospace;font-weight:500}
+
+/* Log */
+.log{font-family:'JetBrains Mono',monospace;font-size:12px;max-height:200px;overflow-y:auto;
+  background:var(--bg);border-radius:8px;padding:12px}
+.log-entry{padding:3px 0;color:var(--text2);border-bottom:1px solid rgba(99,110,150,0.06)}
+.log-entry.success{color:var(--green)} .log-entry.error{color:var(--red)}
+.log-entry .timestamp{color:var(--text3);margin-right:8px}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:6px} ::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* Responsive */
+@media(max-width:768px){.layout{grid-template-columns:1fr}.sidebar{border-right:0;border-bottom:1px solid var(--border)}}
+
+/* Fragmentation ring */
+.frag-container{display:flex;align-items:center;gap:24px;margin:8px 0}
+.frag-ring{position:relative;width:100px;height:100px}
+.frag-ring canvas{width:100px;height:100px}
+.frag-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center}
+.frag-center .value{font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.frag-center .label{font-size:10px;color:var(--text3);text-transform:uppercase}
+.frag-details{flex:1}
+.frag-bar{height:6px;border-radius:3px;background:var(--bg);margin-top:4px;overflow:hidden}
+.frag-bar-fill{height:100%;border-radius:3px;transition:width .5s ease}
+
+/* Modal overlay */
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);
+  z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay.active{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:16px;width:min(900px,90vw);
+  max-height:85vh;overflow:hidden;display:flex;flex-direction:column;
+  box-shadow:0 24px 64px rgba(0,0,0,.6)}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:18px 24px;
+  border-bottom:1px solid var(--border)}
+.modal-header h2{font-size:16px;font-weight:600;display:flex;align-items:center;gap:10px}
+.modal-close{background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer;
+  width:auto;padding:4px 8px;line-height:1}
+.modal-close:hover{color:var(--text);background:none;transform:none}
+.modal-badge{font-size:12px;padding:4px 12px;border-radius:20px;font-weight:600;
+  font-family:'JetBrains Mono',monospace}
+.modal-badge.pass{background:rgba(34,197,94,.15);color:var(--green)}
+.modal-badge.fail{background:rgba(239,68,68,.15);color:var(--red)}
+.modal-body{padding:20px 24px;overflow-y:auto;flex:1}
+.modal-output{font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.7;
+  background:var(--bg);border-radius:10px;padding:16px 20px;white-space:pre-wrap;word-break:break-all;
+  color:var(--text);max-height:60vh;overflow-y:auto}
+
+/* Run buttons */
+.run-btn{display:flex;align-items:center;gap:8px;justify-content:center}
+.run-btn .spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,.3);
+  border-top-color:white;border-radius:50%;animation:spin .6s linear infinite;display:none}
+.run-btn.loading .spinner{display:block}
+.run-btn.loading{opacity:.7;pointer-events:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span>🧠</span> SmartHeap Dashboard</h1>
+  <div class="status"><div class="status-dot" id="statusDot"></div><span id="statusText">Connected</span></div>
+</div>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="card">
+      <div class="card-title">Allocate Memory</div>
+      <div class="control-group">
+        <label>Size (bytes)</label>
+        <div class="input-row">
+          <input type="number" id="allocSize" value="64" min="1" max="1048576">
+          <button onclick="doAlloc()" style="width:auto;padding:10px 20px">Alloc</button>
+        </div>
+      </div>
+      <div class="control-group">
+        <label>Quick allocate</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn-sm btn-secondary" onclick="quickAlloc(32)">32B</button>
+          <button class="btn-sm btn-secondary" onclick="quickAlloc(64)">64B</button>
+          <button class="btn-sm btn-secondary" onclick="quickAlloc(128)">128B</button>
+          <button class="btn-sm btn-secondary" onclick="quickAlloc(256)">256B</button>
+          <button class="btn-sm btn-secondary" onclick="quickAlloc(512)">512B</button>
+          <button class="btn-sm btn-secondary" onclick="quickAlloc(1024)">1KB</button>
+          <button class="btn-sm btn-secondary" onclick="quickAlloc(4096)">4KB</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Strategy</div>
+      <div class="control-group">
+        <select id="strategySelect" onchange="setStrategy()">
+          <option value="first_fit">First Fit</option>
+          <option value="best_fit">Best Fit</option>
+          <option value="worst_fit">Worst Fit</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Actions</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn-green" onclick="checkLeaks()">🔍 Check Leaks</button>
+        <button class="btn-danger" onclick="resetAll()">🔄 Reset Allocator</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Active Blocks</div>
+      <div class="block-list" id="blockList">
+        <div style="color:var(--text3);font-size:13px;text-align:center;padding:16px">No allocations yet</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Run &amp; Test</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button onclick="runExe('run-tests','Test Suite')" id="btnTests" class="run-btn" style="background:#6366f1">
+          <span class="spinner"></span>🧪 Run Test Suite
+        </button>
+        <button onclick="runExe('run-demo','Basic Demo')" id="btnDemo" class="run-btn btn-secondary">
+          <span class="spinner"></span>🎬 Run Demo
+        </button>
+        <button onclick="runExe('run-benchmark','Benchmark')" id="btnBench" class="run-btn btn-secondary">
+          <span class="spinner"></span>📊 Run Benchmark
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main">
+    <!-- Stats -->
+    <div class="stat-grid" id="statsGrid">
+      <div class="stat-card"><div class="stat-label">Current Usage</div><div class="stat-value cyan" id="sCurrent">0 B</div></div>
+      <div class="stat-card"><div class="stat-label">Peak Usage</div><div class="stat-value orange" id="sPeak">0 B</div></div>
+      <div class="stat-card"><div class="stat-label">Total Allocated</div><div class="stat-value accent" id="sAllocated">0 B</div></div>
+      <div class="stat-card"><div class="stat-label">Arena Memory</div><div class="stat-value green" id="sArena">0 B</div></div>
+      <div class="stat-card"><div class="stat-label">Used Blocks</div><div class="stat-value cyan" id="sUsed">0</div></div>
+      <div class="stat-card"><div class="stat-label">Free Blocks</div><div class="stat-value green" id="sFree">0</div></div>
+    </div>
+
+    <!-- Memory Map -->
+    <div class="card">
+      <div class="card-title">Memory Map</div>
+      <div id="memoryMap" class="memory-map">
+        <div style="color:var(--text3);font-size:13px;text-align:center;padding:24px">Initialize the allocator to see the memory map</div>
+      </div>
+      <div class="map-legend">
+        <div class="legend-item"><div class="legend-dot used"></div>Used</div>
+        <div class="legend-item"><div class="legend-dot free"></div>Free</div>
+      </div>
+    </div>
+
+    <!-- Fragmentation & Operations -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+      <div class="card">
+        <div class="card-title">Fragmentation</div>
+        <div class="frag-container">
+          <div class="frag-ring"><canvas id="fragCanvas" width="200" height="200"></canvas>
+            <div class="frag-center"><div class="value" id="fragValue">0%</div><div class="label">External</div></div>
+          </div>
+          <div class="frag-details">
+            <div style="margin-bottom:12px">
+              <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+                <span style="color:var(--text2)">Utilization</span><span class="mono" id="utilValue">0%</span>
+              </div>
+              <div class="frag-bar"><div class="frag-bar-fill" id="utilBar" style="width:0%;background:var(--green)"></div></div>
+            </div>
+            <div style="font-size:12px;color:var(--text2);line-height:1.8">
+              <div>Largest Free: <span class="mono" id="largestFree">-</span></div>
+              <div>Smallest Free: <span class="mono" id="smallestFree">-</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Operations</div>
+        <div class="ops-grid">
+          <div class="ops-item"><span class="label">Allocations</span><span class="value" id="opAlloc">0</span></div>
+          <div class="ops-item"><span class="label">Frees</span><span class="value" id="opFree">0</span></div>
+          <div class="ops-item"><span class="label">Block Reuses</span><span class="value" id="opReuse">0</span></div>
+          <div class="ops-item"><span class="label">Block Splits</span><span class="value" id="opSplit">0</span></div>
+          <div class="ops-item"><span class="label">Coalesces</span><span class="value" id="opCoalesce">0</span></div>
+          <div class="ops-item"><span class="label">Arenas</span><span class="value" id="opArenas">0</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Log -->
+    <div class="card">
+      <div class="card-title">Activity Log</div>
+      <div class="log" id="logArea"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Output Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h2><span id="modalIcon">🧪</span> <span id="modalTitle">Output</span>
+        <span class="modal-badge" id="modalBadge" style="display:none"></span>
+      </h2>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-output" id="modalOutput">Running...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '';
+let state = null;
+
+function fmt(bytes) {
+  if (bytes >= 1048576) return (bytes/1048576).toFixed(2) + ' MB';
+  if (bytes >= 1024) return (bytes/1024).toFixed(1) + ' KB';
+  return bytes + ' B';
+}
+
+function log(msg, cls='') {
+  const el = document.getElementById('logArea');
+  const t = new Date().toLocaleTimeString();
+  el.innerHTML = `<div class="log-entry ${cls}"><span class="timestamp">${t}</span>${msg}</div>` + el.innerHTML;
+  if (el.children.length > 100) el.removeChild(el.lastChild);
+}
+
+async function api(method, path, body=null) {
+  try {
+    const opts = {method, headers:{'Content-Type':'application/json'}};
+    if (body) opts.body = JSON.stringify(body);
+    const r = await fetch(API+path, opts);
+    return await r.json();
+  } catch(e) {
+    setStatus(false);
+    return {error: e.message};
+  }
+}
+
+function setStatus(ok) {
+  const dot = document.getElementById('statusDot');
+  const txt = document.getElementById('statusText');
+  dot.style.background = ok ? 'var(--green)' : 'var(--red)';
+  txt.textContent = ok ? 'Connected' : 'Disconnected';
+}
+
+async function refresh() {
+  const data = await api('GET', '/api/state');
+  if (data.error) { setStatus(false); return; }
+  setStatus(true);
+  state = data;
+  renderStats(data);
+  renderMap(data);
+  renderBlocks(data);
+  renderOps(data);
+  renderFrag(data);
+  updateStrategy(data);
+}
+
+function renderStats(d) {
+  const s = d.stats;
+  document.getElementById('sCurrent').textContent = fmt(s.current_usage);
+  document.getElementById('sPeak').textContent = fmt(s.peak_usage);
+  document.getElementById('sAllocated').textContent = fmt(s.total_allocated);
+  document.getElementById('sArena').textContent = fmt(s.arena_memory);
+  document.getElementById('sUsed').textContent = s.used_blocks;
+  document.getElementById('sFree').textContent = s.free_blocks;
+}
+
+function renderMap(d) {
+  const container = document.getElementById('memoryMap');
+  if (!d.arenas || d.arenas.length === 0) {
+    container.innerHTML = '<div style="color:var(--text3);font-size:13px;text-align:center;padding:24px">No arenas allocated yet</div>';
+    return;
+  }
+  let html = '';
+  d.arenas.forEach(arena => {
+    html += `<div class="arena-label">Arena ${arena.id} — ${fmt(arena.total_size)}</div>`;
+    html += '<div class="arena-bar">';
+    const totalSize = arena.total_size;
+    arena.blocks.forEach(block => {
+      const pct = Math.max((block.size / totalSize) * 100, 0.3);
+      const cls = block.is_free ? 'free' : 'used';
+      const label = block.is_free ? 'FREE' : `#${block.alloc_id}`;
+      html += `<div class="block ${cls}" style="width:${pct}%">`;
+      html += `<div class="block-tooltip"><strong>${label}</strong><br>${fmt(block.size)}</div>`;
+      html += '</div>';
+    });
+    html += '</div>';
+  });
+  container.innerHTML = html;
+}
+
+function renderBlocks(d) {
+  const list = document.getElementById('blockList');
+  if (!d.allocations || d.allocations.length === 0) {
+    list.innerHTML = '<div style="color:var(--text3);font-size:13px;text-align:center;padding:16px">No allocations yet</div>';
+    return;
+  }
+  let html = '';
+  d.allocations.forEach(a => {
+    html += `<div class="block-item">
+      <span class="block-id">#${a.id}</span>
+      <span class="block-size">${fmt(a.size)}</span>
+      <div class="block-actions">
+        <button class="btn-sm btn-danger" onclick="doFree(${a.id})">Free</button>
+      </div>
+    </div>`;
+  });
+  list.innerHTML = html;
+}
+
+function renderOps(d) {
+  const s = d.stats;
+  document.getElementById('opAlloc').textContent = s.alloc_count;
+  document.getElementById('opFree').textContent = s.free_count;
+  document.getElementById('opReuse').textContent = s.reuse_count;
+  document.getElementById('opSplit').textContent = s.split_count;
+  document.getElementById('opCoalesce').textContent = s.coalesce_count;
+  document.getElementById('opArenas').textContent = s.arena_count;
+}
+
+function renderFrag(d) {
+  const s = d.stats;
+  const frag = s.external_frag || 0;
+  const util = s.utilization || 0;
+
+  document.getElementById('fragValue').textContent = frag.toFixed(1) + '%';
+  document.getElementById('utilValue').textContent = util.toFixed(1) + '%';
+  document.getElementById('utilBar').style.width = util + '%';
+  document.getElementById('largestFree').textContent = fmt(s.largest_free || 0);
+  document.getElementById('smallestFree').textContent = fmt(s.smallest_free || 0);
+
+  // Draw ring
+  const canvas = document.getElementById('fragCanvas');
+  const ctx = canvas.getContext('2d');
+  const cx = 100, cy = 100, r = 80, lw = 12;
+  ctx.clearRect(0, 0, 200, 200);
+
+  // Background ring
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(99,110,150,0.15)';
+  ctx.lineWidth = lw;
+  ctx.stroke();
+
+  // Frag arc
+  const angle = (frag / 100) * Math.PI * 2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, -Math.PI/2, -Math.PI/2 + angle);
+  const grad = ctx.createLinearGradient(0, 0, 200, 200);
+  grad.addColorStop(0, '#6366f1');
+  grad.addColorStop(1, '#ec4899');
+  ctx.strokeStyle = grad;
+  ctx.lineWidth = lw;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+}
+
+function updateStrategy(d) {
+  const sel = document.getElementById('strategySelect');
+  if (d.strategy === 'First Fit') sel.value = 'first_fit';
+  else if (d.strategy === 'Best Fit') sel.value = 'best_fit';
+  else if (d.strategy === 'Worst Fit') sel.value = 'worst_fit';
+}
+
+async function doAlloc() {
+  const size = parseInt(document.getElementById('allocSize').value);
+  if (!size || size <= 0) return;
+  const r = await api('POST', '/api/allocate', {size});
+  if (r.ok) { log(`Allocated ${fmt(size)} → Block #${r.id}`, 'success'); refresh(); }
+  else log(`Alloc failed: ${r.error}`, 'error');
+}
+
+function quickAlloc(sz) {
+  document.getElementById('allocSize').value = sz;
+  doAlloc();
+}
+
+async function doFree(id) {
+  const r = await api('POST', '/api/free', {id});
+  if (r.ok) { log(`Freed Block #${id}`, 'success'); refresh(); }
+  else log(`Free failed: ${r.error}`, 'error');
+}
+
+async function setStrategy() {
+  const v = document.getElementById('strategySelect').value;
+  const r = await api('POST', '/api/strategy', {strategy:v});
+  if (r.ok) { log(`Strategy → ${r.strategy}`, 'success'); refresh(); }
+  else log(`Strategy failed: ${r.error}`, 'error');
+}
+
+async function checkLeaks() {
+  const r = await api('GET', '/api/leaks');
+  if (r.leaks > 0) log(`⚠ ${r.leaks} leak(s) detected`, 'error');
+  else log('✓ No leaks detected', 'success');
+}
+
+async function resetAll() {
+  if (!confirm('Reset the allocator? All blocks will be freed.')) return;
+  const r = await api('POST', '/api/reset');
+  if (r.ok) { log('Allocator reset', 'success'); refresh(); }
+  else log(`Reset failed: ${r.error}`, 'error');
+}
+
+// ── Run Executables ──────────────────────────────────────
+const exeIcons = {'run-tests':'🧪','run-demo':'🎬','run-benchmark':'📊'};
+const btnIds = {'run-tests':'btnTests','run-demo':'btnDemo','run-benchmark':'btnBench'};
+
+async function runExe(endpoint, label) {
+  const btn = document.getElementById(btnIds[endpoint]);
+  btn.classList.add('loading');
+  log(`Running ${label}...`);
+
+  const r = await api('POST', `/api/${endpoint}`);
+  btn.classList.remove('loading');
+
+  if (r.error) { log(`${label} failed: ${r.error}`, 'error'); return; }
+
+  // Show modal
+  document.getElementById('modalOverlay').classList.add('active');
+  document.getElementById('modalIcon').textContent = exeIcons[endpoint] || '📄';
+  document.getElementById('modalTitle').textContent = label;
+  document.getElementById('modalOutput').textContent = r.output || '(no output)';
+
+  // Badge for tests
+  const badge = document.getElementById('modalBadge');
+  if (r.total_tests > 0) {
+    badge.style.display = 'inline';
+    badge.textContent = `${r.passed}/${r.total_tests} passed`;
+    badge.className = 'modal-badge ' + (r.failed === 0 ? 'pass' : 'fail');
+    log(`${label}: ${r.passed}/${r.total_tests} passed` + (r.failed > 0 ? ` (${r.failed} FAILED)` : ''), r.failed === 0 ? 'success' : 'error');
+  } else {
+    badge.style.display = 'none';
+    log(`${label} complete (exit code: ${r.exit_code})`, r.exit_code === 0 ? 'success' : 'error');
+  }
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('active');
+}
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
+
+// Auto-refresh
+refresh();
+setInterval(refresh, 1500);
+
+// Enter key triggers allocate
+document.getElementById('allocSize').addEventListener('keydown', e => { if(e.key==='Enter') doAlloc(); });
+
+log('Dashboard connected', 'success');
+</script>
+</body>
+</html>
